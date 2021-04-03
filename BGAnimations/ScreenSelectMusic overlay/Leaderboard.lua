@@ -70,6 +70,7 @@ local af = Def.ActorFrame{
     InitCommand=function(self) self:visible(false) end,
     ShowLeaderboardCommand=function(self)
         self:visible(true)
+        -- Only make the request when this actor gets actually displayed through the sort menu.
         self:queuecommand("SendLeaderboardRequest")
     end,
     HideLeaderboardCommand=function(self) self:visible(false) end,
