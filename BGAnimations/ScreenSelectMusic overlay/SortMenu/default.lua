@@ -9,6 +9,7 @@ local sort_wheel = setmetatable({}, sick_wheel_mt)
 -- is large enough that I moved it to its own file
 local sortmenu_input = LoadActor("SortMenu_InputHandler.lua", sort_wheel)
 local testinput_input = LoadActor("TestInput_InputHandler.lua")
+local leaderboard_input = LoadActor("Leaderboard_InputHandler.lua")
 
 -- "MT" is my personal means of denoting that this thing (the file, the variable, whatever)
 -- has something to do with a Lua metatable.
@@ -57,6 +58,7 @@ local t = Def.ActorFrame {
 		local overlay = self:GetParent()
 
 		screen:RemoveInputCallback(testinput_input)
+		screen:RemoveInputCallback(leaderboard_input)
 		screen:AddInputCallback(sortmenu_input)
 
 		for player in ivalues(PlayerNumber) do
@@ -64,6 +66,7 @@ local t = Def.ActorFrame {
 		end
 		self:playcommand("ShowSortMenu")
 		overlay:playcommand("HideTestInput")
+		overlay:playcommand("HideLeaderboard")
 	end,
 	DirectInputToTestInputCommand=function(self)
 		local screen = SCREENMAN:GetTopScreen()
@@ -76,7 +79,22 @@ local t = Def.ActorFrame {
 			SCREENMAN:set_input_redirected(player, true)
 		end
 		self:playcommand("HideSortMenu")
+		
 		overlay:playcommand("ShowTestInput")
+	end,
+	DirectInputToLeaderboardCommand=function(self)
+		local screen = SCREENMAN:GetTopScreen()
+		local overlay = self:GetParent()
+
+		screen:RemoveInputCallback(sortmenu_input)
+		screen:AddInputCallback(leaderboard_input)
+
+		for player in ivalues(PlayerNumber) do
+			SCREENMAN:set_input_redirected(player, true)
+		end
+		self:playcommand("HideSortMenu")
+		
+		overlay:playcommand("ShowLeaderboard")
 	end,
 	-- this returns input back to the engine and its ScreenSelectMusic
 	DirectInputToEngineCommand=function(self)
@@ -85,12 +103,14 @@ local t = Def.ActorFrame {
 
 		screen:RemoveInputCallback(sortmenu_input)
 		screen:RemoveInputCallback(testinput_input)
+		screen:RemoveInputCallback(leaderboard_input)
 
 		for player in ivalues(PlayerNumber) do
 			SCREENMAN:set_input_redirected(player, false)
 		end
 		self:playcommand("HideSortMenu")
 		overlay:playcommand("HideTestInput")
+		overlay:playcommand("HideLeaderboard")
 	end,
 
 
@@ -179,6 +199,11 @@ local t = Def.ActorFrame {
 		local game = GAMESTATE:GetCurrentGame():GetName()
 		if (game=="dance" or game=="pump" or game=="techno") and GAMESTATE:IsEventMode() then
 			table.insert(wheel_options, {"FeelingSalty", "TestInput"})
+		end
+
+		if game=="dance" and SL.GrooveStats.Leaderboard then
+			-- The relevant Leaderboard.lua actor is only added if these same conditions are met.
+			table.insert(wheel_options, {"GrooveStats", "Leaderboard"})
 		end
 
 		-- Override sick_wheel's default focus_pos, which is math.floor(num_items / 2)

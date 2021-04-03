@@ -275,7 +275,7 @@ t[#t+1] = RequestResponseActor("PingLauncher", 10)..{
 	-- OnCommand doesn't work in ScreenSystemLayer
 	InitCommand=function(self)
 		MESSAGEMAN:Broadcast("PingLauncher", {
-			data={action="ping"},
+			data={action="ping", protocol=1},
 			args={},
 			callback=function(res, args)
 				SL.GrooveStats.Launcher = true

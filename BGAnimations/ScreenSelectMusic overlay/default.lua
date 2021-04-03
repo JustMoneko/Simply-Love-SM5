@@ -37,6 +37,11 @@ local af = Def.ActorFrame{
 	LoadActor("./SortMenu/default.lua"),
 	-- a Test Input overlay can (maybe) be accessed from the SortMenu
 	LoadActor("./TestInput.lua"),
+
+	-- The GrooveStats leaderboard that can (maybe) be accessed from the SortMenu
+	-- This is only added in "dance" mode and if the service is available.
+	LoadActor("./Leaderboard.lua"),
+
 	-- a yes/no prompt overlay for backing out of SelectMusic when in EventMode can be
 	-- activated via "CodeEscapeFromEventMode" under [ScreenSelectMusic] in Metrics.ini
 	LoadActor("./EscapeFromEventMode.lua"),

@@ -105,96 +105,112 @@ end
 
 -- -----------------------------------------------------------------------
 -- af3 contains all of the things related to displaying the GrooveStats connection
+-- Only added if we were able to successfully identify the launcher.
 
-af3 = Def.ActorFrame{
-	Name="GrooveStatsInfo",
-	InitCommand=function(self)
-		self:zoom(0.8):y(-_screen.cy+15):x(_screen.cx-65):diffusealpha(0)
-	end,
-	OnCommand=function(self)
-		self:visible(SL.GrooveStats.Launcher)
-		self:sleep(0.2):linear(0.4):diffusealpha(1)
-	end,
-}
+local NewSessionRequestProcessor = function(res, af3)
+	if af3 == nil then return end
+	
+	local get_scores = af3:GetChild("GetScores")
+	local leaderboard = af3:GetChild("Leaderboard")
+	local auto_submit = af3:GetChild("AutoSubmit")
 
-af3[#af3+1] = LoadFont("Common Normal")..{
-	Text="GrooveStats",
-	InitCommand=function(self) self:diffuse(TextColor):horizalign(center) end,
-}
+	if not res["success"] then
+		get_scores:settext("Failed to Load 😞")
+		leaderboard:visible(false)
+		auto_submit:visible(false)
 
-af3[#af3+1] = LoadFont("Common Normal")..{
-	Name="GetScores",
-	Text=" ...   GetScores",
-	InitCommand=function(self) self:diffuse(TextColor):visible(true):addx(-40):addy(18):horizalign(left) end,
-}
-
-af3[#af3+1] = LoadFont("Common Normal")..{
-	Name="Leaderboard",
-	Text=" ...   Leaderboard",
-	InitCommand=function(self) self:diffuse(TextColor):visible(true):addx(-40):addy(36):horizalign(left) end,
-}
-
-af3[#af3+1] = LoadFont("Common Normal")..{
-	Name="AutoSubmit",
-	Text=" ...   Auto-Submit",
-	InitCommand=function(self) self:diffuse(TextColor):visible(true):addx(-40):addy(54):horizalign(left) end,
-}
-
-af3[#af3+1] = RequestResponseActor("NewSession", 10)..{
-	OnCommand=function(self)
-		MESSAGEMAN:Broadcast("NewSession", {
-			data={action="groovestats/new-session"},
-			args=SCREENMAN:GetTopScreen():GetChild("Underlay"):GetChild("SLInfo"):GetChild("GrooveStatsInfo"),
-			callback=function(res, af3)
-				if af3 == nil then return end
-
-				local get_scores = af3:GetChild("GetScores")
-				local leaderboard = af3:GetChild("Leaderboard")
-				local auto_submit = af3:GetChild("AutoSubmit")
-
-				if not res["success"] then
-					get_scores:settext("Failed to Load 😞")
-					leaderboard:visible(false)
-					auto_submit:visible(false)
-					return
-				end
-
-				local data = res["data"]
-				if data == nil then return end
-
-				if data["servicesAllowed"] ~= nil then
-					local services = data["servicesAllowed"]
-		
-					if get_scores ~= nil and services["playerScores"] ~= nil then
-						if services["playerScores"] then
-							get_scores:settext("✔ GetScores")
-						else
-							get_scores:settext("❌ GetScores")
-						end
-					end
-		
-					if leaderboard ~= nil and services["playerLeaderboards"] ~= nil then
-						if services["playerLeaderboards"] then
-							leaderboard:settext("✔ Leaderboard")
-						else
-							leaderboard:settext("❌ Leaderboard")
-						end
-					end
-		
-					if auto_submit ~= nil and services["scoreSubmit"] ~= nil then
-						if services["scoreSubmit"] then
-							auto_submit:settext("✔ Auto-Submit")
-						else
-							auto_submit:settext("❌ Auto-Submit")
-						end
-					end
-				end
-			end
-		})
+		-- These default to false, but may have changed throughout the game's lifetime.
+		-- It doesn't hurt to explicitly set them to false.
+		SL.GrooveStats.GetScore = false
+		SL.GrooveStats.Leaderboard = false
+		SL.GrooveStats.AutoSubmit = false
+		return
 	end
-}
 
-af2[#af2+1] = af3
+	local data = res["data"]
+	if data == nil then return end
+
+	if data["servicesAllowed"] ~= nil then
+		local services = data["servicesAllowed"]
+
+		if get_scores ~= nil and services["playerScores"] ~= nil then
+			if services["playerScores"] then
+				get_scores:settext("✔ Get Scores")
+				SL.GrooveStats.GetScore = true
+			else
+				get_scores:settext("❌ Get Scores")
+				SL.GrooveStats.GetScore = false
+			end
+		end
+
+		if leaderboard ~= nil and services["playerLeaderboards"] ~= nil then
+			if services["playerLeaderboards"] then
+				leaderboard:settext("✔ Leaderboard")
+				SL.GrooveStats.Leaderboard = true
+			else
+				leaderboard:settext("❌ Leaderboard")
+				SL.GrooveStats.Leaderboard = false
+			end
+		end
+
+		if auto_submit ~= nil and services["scoreSubmit"] ~= nil then
+			if services["scoreSubmit"] then
+				auto_submit:settext("✔ Auto-Submit")
+				SL.GrooveStats.AutoSubmit = true
+			else
+				auto_submit:settext("❌ Auto-Submit")
+				SL.GrooveStats.AutoSubmit = false
+			end
+		end
+	end
+end
+
+if SL.GrooveStats.Launcher then
+	af2[#af2+1] = Def.ActorFrame{
+		Name="GrooveStatsInfo",
+		InitCommand=function(self)
+			self:zoom(0.8):y(-_screen.cy+15):x(_screen.cx-65):diffusealpha(0)
+		end,
+		OnCommand=function(self)
+			self:visible(SL.GrooveStats.Launcher)
+			self:sleep(0.2):linear(0.4):diffusealpha(1)
+		end,
+
+		LoadFont("Common Normal")..{
+			Text="GrooveStats",
+			InitCommand=function(self) self:diffuse(TextColor):horizalign(center) end,
+		},
+	
+		LoadFont("Common Normal")..{
+			Name="GetScores",
+			Text=" ...   Get Scores",
+			InitCommand=function(self) self:diffuse(TextColor):visible(true):addx(-40):addy(18):horizalign(left) end,
+		},
+	
+		LoadFont("Common Normal")..{
+			Name="Leaderboard",
+			Text=" ...   Leaderboard",
+			InitCommand=function(self) self:diffuse(TextColor):visible(true):addx(-40):addy(36):horizalign(left) end,
+		},
+	
+		LoadFont("Common Normal")..{
+			Name="AutoSubmit",
+			Text=" ...   Auto-Submit",
+			InitCommand=function(self) self:diffuse(TextColor):visible(true):addx(-40):addy(54):horizalign(left) end,
+		},
+
+		RequestResponseActor("NewSession", 10)..{
+			OnCommand=function(self)
+				MESSAGEMAN:Broadcast("NewSession", {
+					data={action="groovestats/new-session", ChartHashVersion=SL.GrooveStats.ChartHashVersion},
+					args=SCREENMAN:GetTopScreen():GetChild("Underlay"):GetChild("SLInfo"):GetChild("GrooveStatsInfo"),
+					callback=NewSessionRequestProcessor
+				})
+			end
+		}
+	}
+
+end
 
 -- ensure that af2 is added as a child of af
 af[#af+1] = af2
