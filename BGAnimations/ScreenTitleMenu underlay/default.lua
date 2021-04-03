@@ -121,7 +121,7 @@ local NewSessionRequestProcessor = function(res, af3)
 
 		-- These default to false, but may have changed throughout the game's lifetime.
 		-- It doesn't hurt to explicitly set them to false.
-		SL.GrooveStats.GetScore = false
+		SL.GrooveStats.GetScores = false
 		SL.GrooveStats.Leaderboard = false
 		SL.GrooveStats.AutoSubmit = false
 		return
@@ -136,10 +136,10 @@ local NewSessionRequestProcessor = function(res, af3)
 		if get_scores ~= nil and services["playerScores"] ~= nil then
 			if services["playerScores"] then
 				get_scores:settext("✔ Get Scores")
-				SL.GrooveStats.GetScore = true
+				SL.GrooveStats.GetScores = true
 			else
 				get_scores:settext("❌ Get Scores")
-				SL.GrooveStats.GetScore = false
+				SL.GrooveStats.GetScores = false
 			end
 		end
 

@@ -362,7 +362,7 @@ SL = {
 
 		-- Available GrooveStats services. Subject to change while
 		-- StepMania is running.
-		GetScore = false,
+		GetScores = false,
 		Leaderboard = false,
 		AutoSubmit = false,
 
