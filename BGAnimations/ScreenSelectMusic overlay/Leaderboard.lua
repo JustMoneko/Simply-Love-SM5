@@ -5,9 +5,9 @@ local NumEntries = 13
 local SetEntryText = function(rank, name, score, actor)
 	if actor == nil then return end
 
-	actor:GetChild("Rank"):setText(rank)
-	actor:GetChild("Name"):setText(name)
-	actor:GetChild("Score"):setText(score)
+	actor:GetChild("Rank"):settext(rank)
+	actor:GetChild("Name"):settext(name)
+	actor:GetChild("Score"):settext(score)
 end
 
 local LeaderboardRequestProcessor = function(res, master)
@@ -19,8 +19,10 @@ local LeaderboardRequestProcessor = function(res, master)
 
 		local playerStr = "player"..tostring(i)
 		local entryNum = 1
+		local data = res["success"] and res["data"] or false
+
 		-- First check to see if the leaderboard even exists.
-		if data[playerStr] and data[playerStr]["gsLeaderboard"] then
+		if data and data[playerStr] and data[playerStr]["gsLeaderboard"] then
 			-- We want to make sure we handle the "gaps" in the ranks appropriately.
 			local rankSequence = 0
 			for gsEntry in ivalues(data[playerStr]["gsLeaderboard"]) do
@@ -29,21 +31,21 @@ local LeaderboardRequestProcessor = function(res, master)
 					SetEntryText(
 						tostring(gsEntry["rank"].."."),
 						gsEntry["name"],
-						tostring(gsEntry["name"]/100).."%",
-						p1Leaderboard:GetChild("LeaderboardEntry"..tostring(entryNum))
+						string.format("%.2f%%", gsEntry["score"]/100),
+						leaderboard:GetChild("LeaderboardEntry"..tostring(entryNum))
 					)
 					entryNum = entryNum + 1
 					rankSequence = rankSequence + 1
 				else
 					-- Otherwise we first add "..." entry to indicate a gap in the rank.
-					SetEntryText("", "...", "", p1Leaderboard:GetChild("LeaderboardEntry"..tostring(entryNum)))
+					SetEntryText("", "...", "", leaderboard:GetChild("LeaderboardEntry"..tostring(entryNum)))
 					entryNum = entryNum + 1
 					-- And then add the actual entry
 					SetEntryText(
 						tostring(gsEntry["rank"].."."),
 						gsEntry["name"],
-						tostring(gsEntry["name"]/100).."%",
-						p1Leaderboard:GetChild("LeaderboardEntry"..tostring(entryNum))
+						string.format("%.2f%%", gsEntry["score"]/100),
+						leaderboard:GetChild("LeaderboardEntry"..tostring(entryNum))
 					)
 					entryNum = entryNum + 1
 					rankSequence = gsEntry["rank"]
@@ -59,7 +61,12 @@ local LeaderboardRequestProcessor = function(res, master)
 			if not res["success"] and i == 1 then
 				SetEntryText("", "Failed to Load 😞", "", entry)
 			else
-				SetEntryText("", "", "", entry)
+				-- We didn't get any scores
+				if i == 1 then
+					SetEntryText("", "No Scores Available", "", entry)
+				else
+					SetEntryText("", "", "", entry)
+				end
 			end
 		end
 	end
@@ -70,6 +77,7 @@ local af = Def.ActorFrame{
 	InitCommand=function(self) self:visible(false) end,
 	ShowLeaderboardCommand=function(self)
 		self:visible(true)
+		MESSAGEMAN:Broadcast("ResetEntry")
 		-- Only make the request when this actor gets actually displayed through the sort menu.
 		self:queuecommand("SendLeaderboardRequest")
 	end,
@@ -82,23 +90,29 @@ local af = Def.ActorFrame{
 	},
 	RequestResponseActor("Leaderboard", 10)..{
 		SendLeaderboardRequestCommand=function(self)
-			-- TODO(teejusb): Use proper chartHash and fetch API keys.
-			MESSAGEMAN:Broadcast("Leaderboard", {
-				data={
-					action="groovestats/player-leaderboards",
-					maxLeaderboardResults=10,
-					player1={
-						chartHash="",
-						apiKey="",
-					},
-					player2={
-						chartHash="",
-						apiKey="",
+			local sendRequest = false
+			local data = {
+				action="groovestats/player-leaderboards",
+				maxLeaderboardResults=9,  -- We have 13 rows of space, but in the worst case we can have 9 scores and 4 "..."s
+			}
+
+			for i=1,2 do
+				if SL["P"..tostring(i)].ApiKey ~= "" and SL["P"..tostring(i)].Streams.Hash ~= "" then
+					data["player"..tostring(i)] = {
+						chartHash=SL.P1.Streams.Hash,
+						apiKey=SL.P1.ApiKey
 					}
-				},
-				args=SCREENMAN:GetTopScreen():GetChild("Overlay"):GetChild("LeaderboardMaster"),
-				callback=LeaderboardRequestProcessor
-			})
+					sendRequest = true
+				end
+			end
+			-- Only send the request if it's applicable.
+			if sendRequest then
+				MESSAGEMAN:Broadcast("Leaderboard", {
+					data=data,
+					args=SCREENMAN:GetTopScreen():GetChild("Overlay"):GetChild("LeaderboardMaster"),
+					callback=LeaderboardRequestProcessor
+				})
+			end
 		end
 	}
 }
@@ -165,8 +179,6 @@ for player in ivalues( PlayerNumber ) do
 			InitCommand=function(self)
 				self:y(24*(i-8) + 24)
 			end,
-			UpdateScore=function(self, params)
-			end,
 
 			LoadFont("Miso/_miso").. {
 				Name="Rank",
@@ -175,6 +187,9 @@ for player in ivalues( PlayerNumber ) do
 					self:horizalign(right)
 					self:maxwidth(30)
 					self:x(-paneWidth/2 + 30 + borderWidth)
+				end,
+				ResetEntryMessageCommand=function(self)
+					self:settext("")
 				end
 			},
 
@@ -185,6 +200,9 @@ for player in ivalues( PlayerNumber ) do
 					self:horizalign(center)
 					self:maxwidth(130)
 					self:x(-paneWidth/2 + 100)
+				end,
+				ResetEntryMessageCommand=function(self)
+					self:settext(i==1 and "Loading" or "")
 				end
 			},
 
@@ -194,6 +212,9 @@ for player in ivalues( PlayerNumber ) do
 				InitCommand=function(self)
 					self:horizalign(right)
 					self:x(paneWidth/2-borderWidth)
+				end,
+				ResetEntryMessageCommand=function(self)
+					self:settext("")
 				end
 			},
 		}
