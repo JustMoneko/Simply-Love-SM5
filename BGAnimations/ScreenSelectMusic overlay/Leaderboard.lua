@@ -78,7 +78,12 @@ local LeaderboardRequestProcessor = function(res, master)
 					SetEntryText("", "Failed to Load 😞", "", entry)
 				end
 			else
-				SetEntryText("", "", "", entry)
+				-- We didn't get any scores
+				if i == 1 then
+					SetEntryText("", "No Scores Available", "", entry)
+				else
+					SetEntryText("", "", "", entry)
+				end
 			end
 		end
 	end
