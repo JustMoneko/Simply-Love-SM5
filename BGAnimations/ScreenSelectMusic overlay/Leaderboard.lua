@@ -70,7 +70,7 @@ local LeaderboardRequestProcessor = function(res, master)
 		-- and we will set the first entry to "Failed to Load 😞".
 		for i=entryNum, NumEntries do
 			local entry = leaderboard:GetChild("LeaderboardEntry"..tostring(i))
-			-- We didn't get any scores
+			-- We didn't get any scores if i is still == 1.
 			if i == 1 then
 				if res["success"] then
 					SetEntryText("", "No Scores Available", "", entry)
@@ -123,6 +123,7 @@ local af = Def.ActorFrame{
 				end
 			end
 			-- Only send the request if it's applicable.
+			-- Technically this should always be true since otherwise we wouldn't even get to this screen.
 			if sendRequest then
 				MESSAGEMAN:Broadcast("Leaderboard", {
 					data=data,
@@ -153,24 +154,45 @@ for player in ivalues( PlayerNumber ) do
 
 		end,
 
+		-- White border
 		Def.Quad {
 			InitCommand=function(self)
 				self:diffuse(Color.White):zoomto(paneWidth + borderWidth, paneHeight + borderWidth)
 			end
 		},
 
+		-- Main black body
 		Def.Quad {
 			InitCommand=function(self)
 				self:diffuse(Color.Black):zoomto(paneWidth, paneHeight)
 			end
 		},
 
+		-- Header border
 		Def.Quad {
 			InitCommand=function(self)
 				self:diffuse(Color.White):zoomto(paneWidth + borderWidth, RowHeight + borderWidth):y(-paneHeight/2 + RowHeight/2)
 			end
 		},
 
+		-- Blue Header
+		Def.Quad {
+			InitCommand=function(self)
+				self:diffuse(Color.Blue):zoomto(paneWidth, RowHeight):y(-paneHeight/2 + RowHeight/2)
+			end
+		},
+
+		-- Header Text
+		LoadFont("Wendy/_wendy small").. {
+			Name="Header",
+			Text="GrooveStats",
+			InitCommand=function(self)
+				self:zoom(0.5)
+				self:y(-paneHeight/2 + 12)
+			end
+		},
+
+		-- Highlight backgrounds for the leaderboard. Initially hidden.
 		Def.Quad {
 			Name="Rival1",
 			InitCommand=function(self)
@@ -210,27 +232,11 @@ for player in ivalues( PlayerNumber ) do
 				self:visible(false)
 			end
 		},
-
-		Def.Quad {
-			InitCommand=function(self)
-				self:diffuse(Color.Blue):zoomto(paneWidth, RowHeight):y(-paneHeight/2 + RowHeight/2)
-			end
-		},
-
-		-- Rank
-		LoadFont("Wendy/_wendy small").. {
-			Name="Header",
-			Text="GrooveStats",
-			InitCommand=function(self)
-				self:zoom(0.5)
-				self:y(-paneHeight/2 + 12)
-			end
-		},
 	}
 	
 	local af2 = af[#af]
-	-- We need 15 slots because we need space to put the "..." for non sequential rankings
 	for i=1, NumEntries do
+		--- Each entry has a Rank, Name, and Score subactor.
 		af2[#af2+1] = Def.ActorFrame{
 			Name="LeaderboardEntry"..tostring(i),
 			InitCommand=function(self)
