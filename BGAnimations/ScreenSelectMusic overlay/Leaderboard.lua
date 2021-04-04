@@ -1,6 +1,7 @@
 if not IsServiceAllowed(SL.GrooveStats.Leaderboard) then return end
 
 local NumEntries = 13
+local RowHeight = 24
 
 local SetEntryText = function(rank, name, score, actor)
 	if actor == nil then return end
@@ -19,6 +20,7 @@ local LeaderboardRequestProcessor = function(res, master)
 
 		local playerStr = "player"..tostring(i)
 		local entryNum = 1
+		local rivalNum = 1
 		local data = res["success"] and res["data"] or false
 
 		-- First check to see if the leaderboard even exists.
@@ -27,29 +29,39 @@ local LeaderboardRequestProcessor = function(res, master)
 			local rankSequence = 0
 			for gsEntry in ivalues(data[playerStr]["gsLeaderboard"]) do
 				-- If we're "in sequence" we can just set the next entry text normally.
-				if gsEntry["rank"] == rankSequence + 1 then
-					SetEntryText(
-						tostring(gsEntry["rank"].."."),
-						gsEntry["name"],
-						string.format("%.2f%%", gsEntry["score"]/100),
-						leaderboard:GetChild("LeaderboardEntry"..tostring(entryNum))
-					)
-					entryNum = entryNum + 1
-					rankSequence = rankSequence + 1
-				else
-					-- Otherwise we first add "..." entry to indicate a gap in the rank.
-					SetEntryText("", "...", "", leaderboard:GetChild("LeaderboardEntry"..tostring(entryNum)))
-					entryNum = entryNum + 1
+				-- if gsEntry["rank"] == rankSequence + 1 then
+				-- 	SetEntryText(
+				-- 		tostring(gsEntry["rank"].."."),
+				-- 		gsEntry["name"],
+				-- 		string.format("%.2f%%", gsEntry["score"]/100),
+				-- 		leaderboard:GetChild("LeaderboardEntry"..tostring(entryNum))
+				-- 	)
+				-- 	entryNum = entryNum + 1
+				-- 	rankSequence = rankSequence + 1
+				-- else
+				-- 	-- Otherwise we first add "..." entry to indicate a gap in the rank.
+				-- 	SetEntryText("", "...", "", leaderboard:GetChild("LeaderboardEntry"..tostring(entryNum)))
+				-- 	entryNum = entryNum + 1
 					-- And then add the actual entry
+					local entry = leaderboard:GetChild("LeaderboardEntry"..tostring(entryNum))
+					entry:diffuse(Color.White)
 					SetEntryText(
 						tostring(gsEntry["rank"].."."),
 						gsEntry["name"],
 						string.format("%.2f%%", gsEntry["score"]/100),
-						leaderboard:GetChild("LeaderboardEntry"..tostring(entryNum))
+						entry
 					)
+					if gsEntry["isRival"] then
+						entry:diffuse(Color.Black)
+						leaderboard:GetChild("Rival"..tostring(rivalNum)):y(entry:GetY()):visible(true)
+						rivalNum = rivalNum + 1
+					elseif gsEntry["isSelf"] then
+						entry:diffuse(Color.Black)
+						leaderboard:GetChild("Self"):y(entry:GetY()):visible(true)
+					end
 					entryNum = entryNum + 1
 					rankSequence = gsEntry["rank"]
-				end
+				-- end
 			end
 		end
 
@@ -58,15 +70,15 @@ local LeaderboardRequestProcessor = function(res, master)
 		-- and we will set the first entry to "Failed to Load 😞".
 		for i=entryNum, NumEntries do
 			local entry = leaderboard:GetChild("LeaderboardEntry"..tostring(i))
-			if not res["success"] and i == 1 then
-				SetEntryText("", "Failed to Load 😞", "", entry)
-			else
-				-- We didn't get any scores
-				if i == 1 then
+			-- We didn't get any scores
+			if i == 1 then
+				if res["success"] then
 					SetEntryText("", "No Scores Available", "", entry)
 				else
-					SetEntryText("", "", "", entry)
+					SetEntryText("", "Failed to Load 😞", "", entry)
 				end
+			else
+				SetEntryText("", "", "", entry)
 			end
 		end
 	end
@@ -93,14 +105,14 @@ local af = Def.ActorFrame{
 			local sendRequest = false
 			local data = {
 				action="groovestats/player-leaderboards",
-				maxLeaderboardResults=9,  -- We have 13 rows of space, but in the worst case we can have 9 scores and 4 "..."s
+				maxLeaderboardResults=13,  -- We have 13 rows of space, but in the worst case we can have 9 scores and 4 "..."s
 			}
 
 			for i=1,2 do
 				if SL["P"..tostring(i)].ApiKey ~= "" and SL["P"..tostring(i)].Streams.Hash ~= "" then
 					data["player"..tostring(i)] = {
-						chartHash=SL.P1.Streams.Hash,
-						apiKey=SL.P1.ApiKey
+						chartHash=SL["P"..tostring(i)].Streams.Hash,
+						apiKey=SL["P"..tostring(i)].ApiKey
 					}
 					sendRequest = true
 				end
@@ -150,13 +162,53 @@ for player in ivalues( PlayerNumber ) do
 
 		Def.Quad {
 			InitCommand=function(self)
-				self:diffuse(Color.White):zoomto(paneWidth + borderWidth, 24 + borderWidth):y(-paneHeight/2 + 12)
+				self:diffuse(Color.White):zoomto(paneWidth + borderWidth, RowHeight + borderWidth):y(-paneHeight/2 + RowHeight/2)
+			end
+		},
+
+		Def.Quad {
+			Name="Rival1",
+			InitCommand=function(self)
+				self:diffuse(Color.Red):zoomto(paneWidth, RowHeight):visible(false)
+			end,
+			ResetEntryMessageCommand=function(self)
+				self:visible(false)
+			end
+		},
+
+		Def.Quad {
+			Name="Rival2",
+			InitCommand=function(self)
+				self:diffuse(Color.Red):zoomto(paneWidth, RowHeight):visible(false)
+			end,
+			ResetEntryMessageCommand=function(self)
+				self:visible(false)
+			end
+		},
+
+		Def.Quad {
+			Name="Rival3",
+			InitCommand=function(self)
+				self:diffuse(Color.Red):zoomto(paneWidth, RowHeight):visible(false)
+			end,
+			ResetEntryMessageCommand=function(self)
+				self:visible(false)
+			end
+		},
+
+		Def.Quad {
+			Name="Self",
+			InitCommand=function(self)
+				self:diffuse(Color.Green):zoomto(paneWidth, RowHeight):visible(false)
+			end,
+			ResetEntryMessageCommand=function(self)
+				self:visible(false)
 			end
 		},
 
 		Def.Quad {
 			InitCommand=function(self)
-				self:diffuse(Color.Blue):zoomto(paneWidth, 24):y(-paneHeight/2 + 12)
+				self:diffuse(Color.Blue):zoomto(paneWidth, RowHeight):y(-paneHeight/2 + RowHeight/2)
 			end
 		},
 
@@ -177,7 +229,7 @@ for player in ivalues( PlayerNumber ) do
 		af2[#af2+1] = Def.ActorFrame{
 			Name="LeaderboardEntry"..tostring(i),
 			InitCommand=function(self)
-				self:y(24*(i-8) + 24)
+				self:y(RowHeight*(i-8) + RowHeight)
 			end,
 
 			LoadFont("Miso/_miso").. {
@@ -187,9 +239,11 @@ for player in ivalues( PlayerNumber ) do
 					self:horizalign(right)
 					self:maxwidth(30)
 					self:x(-paneWidth/2 + 30 + borderWidth)
+					self:diffuse(Color.White)
 				end,
 				ResetEntryMessageCommand=function(self)
 					self:settext("")
+					self:diffuse(Color.White)
 				end
 			},
 
@@ -200,9 +254,11 @@ for player in ivalues( PlayerNumber ) do
 					self:horizalign(center)
 					self:maxwidth(130)
 					self:x(-paneWidth/2 + 100)
+					self:diffuse(Color.White)
 				end,
 				ResetEntryMessageCommand=function(self)
 					self:settext(i==1 and "Loading" or "")
+					self:diffuse(Color.White)
 				end
 			},
 
@@ -212,9 +268,11 @@ for player in ivalues( PlayerNumber ) do
 				InitCommand=function(self)
 					self:horizalign(right)
 					self:x(paneWidth/2-borderWidth)
+					self:diffuse(Color.White)
 				end,
 				ResetEntryMessageCommand=function(self)
 					self:settext("")
+					self:diffuse(Color.White)
 				end
 			},
 		}
