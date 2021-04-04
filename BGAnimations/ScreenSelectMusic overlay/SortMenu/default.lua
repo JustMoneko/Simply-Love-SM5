@@ -34,6 +34,8 @@ local wheel_item_mt = LoadActor("WheelItemMT.lua")
 
 local sortmenu = { w=210, h=160 }
 
+local hasSong = GAMESTATE:GetCurrentSong() and true or false
+
 ------------------------------------------------------------
 
 local t = Def.ActorFrame {
@@ -48,6 +50,18 @@ local t = Def.ActorFrame {
 	OnCommand=function(self) self:playcommand("AssessAvailableChoices") end,
 	-- We'll want to (re)assess available choices in the SortMenu if a player late-joins
 	PlayerJoinedMessageCommand=function(self, params) self:queuecommand("AssessAvailableChoices") end,
+
+	-- We'll also (re)asses if we want to display the leaderboard depending on if we're actually hovering over a song.
+	CurrentSongChangedMessageCommand=function(self)
+		if IsServiceAllowed(SL.GrooveStats.Leaderboard) then
+			local curSong = GAMESTATE:GetCurrentSong()
+			-- Only reasses if we go from song->group or group->song
+			if (curSong and not hasSong) or (not curSong and hasSong) then
+				self:queuecommand("AssessAvailableChoices")
+			end
+			hasSong = curSong and true or false
+		end
+	end,
 
 
 	ShowSortMenuCommand=function(self) self:visible(true) end,
@@ -201,9 +215,12 @@ local t = Def.ActorFrame {
 			table.insert(wheel_options, {"FeelingSalty", "TestInput"})
 		end
 
-		if game=="dance" and SL.GrooveStats.Leaderboard then
-			-- The relevant Leaderboard.lua actor is only added if these same conditions are met.
-			table.insert(wheel_options, {"GrooveStats", "Leaderboard"})
+		-- The relevant Leaderboard.lua actor is only added if these same conditions are met.
+		if IsServiceAllowed(SL.GrooveStats.Leaderboard) then
+			-- Also only add this if we're actually hovering over a song.
+			if GAMESTATE:GetCurrentSong() then
+				table.insert(wheel_options, {"GrooveStats", "Leaderboard"})
+			end
 		end
 
 		-- Override sick_wheel's default focus_pos, which is math.floor(num_items / 2)

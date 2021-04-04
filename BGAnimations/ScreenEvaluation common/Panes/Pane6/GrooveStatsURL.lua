@@ -32,6 +32,6 @@ end
 ParseChartInfo(steps, pn)
 local hash = SL[pn].Streams.Hash
 
-local qr_version = SL.GrooveStats.Launcher.ChartHashVersion
+local qr_version = SL.GrooveStats.ChartHashVersion
 
 return ("https://groovestats.com/qr.php?h=%s&s=%s&f=%s&r=%s&v=%d"):format(hash, score, failed, rate, qr_version)

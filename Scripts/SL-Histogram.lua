@@ -14,8 +14,6 @@ local function gen_vertices(player, width, height, desaturation)
 	
 	if not Steps then return {} end
 
-	-- There's also a notesPerMeasure argument, but we don't really care about it so it'll default to 16
-	-- even if we don't provide it.
 	-- This function does no work if we already have the data in SL.Streams cache.
 	ParseChartInfo(Steps, pn)
 	PeakNPS = SL[pn].Streams.PeakNPS

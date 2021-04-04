@@ -677,3 +677,61 @@ RequestResponseActor = function(name, timeout)
 		end
 	}
 end
+
+-- -----------------------------------------------------------------------
+-- Returns the API key for a player if it's found in their profile.
+-- Returns the empty string if it was not found or of it was invalid (not 64 characters).
+
+GetApiKeyForPlayer = function(player)
+	if not player then return "" end
+
+	local profile_slot = {
+		[PLAYER_1] = "ProfileSlot_Player1",
+		[PLAYER_2] = "ProfileSlot_Player2"
+	}
+	
+	if not profile_slot[player] then return "" end
+
+	local dir = PROFILEMAN:GetProfileDir(profile_slot[player])
+	-- We require an explicit profile to be loaded.
+	if not dir or #dir == 0 then return "" end
+
+	local path = dir.. "GrooveStats.ini"
+
+	if not FILEMAN:DoesFileExist(path) then
+		-- The file doesn't exist. We will create it for this profile, and then just return.
+		IniFile.WriteFile(path, {
+			["GrooveStats"]={
+				["ApiKey"]=""
+			}
+		})
+
+		return ""
+	else
+		local contents = IniFile.ReadFile(path)["GrooveStats"]
+		for k,v in pairs(contents) do
+			if k == "ApiKey" then
+				if #v ~= 64 then
+					return ""
+				else
+					return v
+				end
+			end
+		end
+	end
+
+	return ""
+end
+
+-- -----------------------------------------------------------------------
+-- The common conditions required to use the GrooveStats services.
+-- Currently the conditions are:
+--  - We must be in the "dance" game mode (not "pump", etc)
+--  - At least one Api Key must be available
+--  - We must not be in course mode.
+IsServiceAllowed = function(condition)
+	return (condition and
+		GAMESTATE:GetCurrentGame():GetName()=="dance" and
+		(SL.P1.ApiKey ~= "" or SL.P2.ApiKey ~= "") and
+		not GAMESTATE:IsCourseMode())
+end

@@ -68,6 +68,9 @@ local PlayerDefaults = {
 			-- in versus (2 players joined) only EvalPanePrimary will be used
 			self.EvalPanePrimary   = 1 -- large score and judgment counts
 			self.EvalPaneSecondary = 4 -- offset histogram
+
+			-- The Groovestats API key loaded for this player
+			self.ApiKey = ""
 		end
 	}
 }
