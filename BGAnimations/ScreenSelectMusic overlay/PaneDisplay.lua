@@ -10,6 +10,9 @@ local pane_height = 60
 
 local text_zoom = WideScale(0.8, 0.9)
 
+-- -----------------------------------------------------------------------
+-- Convenience function to return the SongOrCourse and StepsOrTrail for a
+-- for a player.
 local GetSongAndSteps = function(player)
 	local SongOrCourse = (GAMESTATE:IsCourseMode() and GAMESTATE:GetCurrentCourse()) or GAMESTATE:GetCurrentSong()
 	local StepsOrTrail = (GAMESTATE:IsCourseMode() and GAMESTATE:GetCurrentTrail(player)) or GAMESTATE:GetCurrentSteps(player)
@@ -36,6 +39,10 @@ local GetNameAndScore = function(profile, SongOrCourse, StepsOrTrail)
 	end
 
 	return score, name
+end
+
+-- -----------------------------------------------------------------------
+local GetScoresRequestProcessor = function(res, master)
 end
 
 -- -----------------------------------------------------------------------
@@ -67,9 +74,37 @@ local PaneItems = {
 }
 
 -- -----------------------------------------------------------------------
-local af = Def.ActorFrame{
-	Name="PaneDisplayMaster"
-}
+local af = Def.ActorFrame{ Name="PaneDisplayMaster" }
+
+-- Only add this actor if it's relevant.
+if IsServiceAllowed(SL.GrooveStats.GetScores) then
+	af[#af+1] = RequestResponseActor("GetScores", 10)..{
+		GetScoresRequestCommand=function(self)
+			local sendRequest = false
+			local data = {
+				action="groovestats/player-scores",
+			}
+
+			for i=1,2 do
+				if SL["P"..tostring(i)].ApiKey ~= "" and SL["P"..tostring(i)].Streams.Hash ~= "" then
+					data["player"..tostring(i)] = {
+						chartHash=SL["P"..tostring(i)].Streams.Hash,
+						apiKey=SL["P"..tostring(i)].ApiKey
+					}
+					sendRequest = true
+				end
+			end
+			-- Only send the request if it's applicable.
+			if sendRequest then
+				MESSAGEMAN:Broadcast("GetScores", {
+					data=data,
+					args=SCREENMAN:GetTopScreen():GetChild("Overlay"):GetChild("PaneDisplayMaster"),
+					callback=GetScoresRequestProcessor
+				})
+			end
+		end
+	}
+end
 
 for player in ivalues( PlayerNumber ) do
 	local pn = ToEnumShortString(player)
@@ -125,7 +160,7 @@ for player in ivalues( PlayerNumber ) do
 			self:vertalign(top)
 		end,
 		SetCommand=function(self)
-			local StepsOrTrail = (GAMESTATE:IsCourseMode() and GAMESTATE:GetCurrentTrail(player)) or GAMESTATE:GetCurrentSteps(player)
+			local SongOrCourse, StepsOrTrail = GetSongAndSteps(player)
 			if GAMESTATE:IsHumanPlayer(player) then
 				if StepsOrTrail then
 					local difficulty = StepsOrTrail:GetDifficulty()
@@ -159,8 +194,7 @@ for player in ivalues( PlayerNumber ) do
 				end,
 
 				SetCommand=function(self)
-					local SongOrCourse = (GAMESTATE:IsCourseMode() and GAMESTATE:GetCurrentCourse()) or GAMESTATE:GetCurrentSong()
-					local StepsOrTrail = (GAMESTATE:IsCourseMode() and GAMESTATE:GetCurrentTrail(player)) or GAMESTATE:GetCurrentSteps(player)
+					local SongOrCourse, StepsOrTrail = GetSongAndSteps(player)
 					if not SongOrCourse then self:settext("?"); return end
 					if not StepsOrTrail then self:settext("");  return end
 

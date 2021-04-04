@@ -351,8 +351,24 @@ local MaybeCopyFromOppositePlayer = function(pn, filename, stepsType, difficulty
 		MESSAGEMAN:Broadcast(pn.."ChartParsed")
 	end
 end
+
+local ResetCacheForPlayer = function(pn)
+	SL[pn].Streams.Filename = ""
+	SL[pn].Streams.StepsType = ""
+	SL[pn].Streams.Difficulty = ""
+	SL[pn].Streams.Description = ""
+
+	SL[pn].Streams.NotesPerMeasure = {}
+	SL[pn].Streams.PeakNPS = 0
+	SL[pn].Streams.NPSperMeasure = {}
+	SL[pn].Streams.Hash = ''
+end
 		
 ParseChartInfo = function(steps, pn)
+	if not steps then
+		ResetCacheForPlayer(pn)
+		return
+	end
 	-- The filename for these steps in the StepMania cache 
 	local filename = steps:GetFilename()
 	-- StepsType, a string like "dance-single" or "pump-double"

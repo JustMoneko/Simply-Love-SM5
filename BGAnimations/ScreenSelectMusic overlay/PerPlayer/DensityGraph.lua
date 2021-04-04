@@ -55,7 +55,9 @@ af[#af+1] = Def.Quad{
 	end
 }
 
--- The Density Graph itself
+-- The Density Graph itself.
+-- This is what actually calls ParseChartInfo for each player which responds to
+-- CurrentStepsPNChangedMessageCommand.
 af[#af+1] = NPS_Histogram(player, width, height)..{
 	Name="DensityGraph",
 	OnCommand=function(self)
