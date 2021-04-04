@@ -11,12 +11,11 @@ local function gen_vertices(player, width, height, desaturation)
 		Steps = GAMESTATE:GetCurrentSteps(player)
 		Song = GAMESTATE:GetCurrentSong()
 	end
-
-	-- This function does no work if we already have the data in SL.Streams cache.
-	-- If Steps is nil, it will reset the cache for the player to the default values.
-	ParseChartInfo(Steps, pn)
+	
 	if not Steps then return {} end
 
+	-- This function does no work if we already have the data in SL.Streams cache.
+	ParseChartInfo(Steps, pn)
 	PeakNPS = SL[pn].Streams.PeakNPS
 	NPSperMeasure = SL[pn].Streams.NPSperMeasure 
 	-- store the PeakNPS in GAMESTATE:Env()[pn.."PeakNPS"] in case both players are joined
