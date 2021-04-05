@@ -42,7 +42,111 @@ local GetNameAndScore = function(profile, SongOrCourse, StepsOrTrail)
 end
 
 -- -----------------------------------------------------------------------
+local SetNameAndScore = function(name, score, nameActor, scoreActor)
+	if not scoreActor or not nameActor then return end
+	scoreActor:settext(score)
+	nameActor:settext(name)
+end
+
+local GetMachineTag = function(gsEntry)
+	if not gsEntry then return end
+	if gsEntry["machineTag"] then
+		-- Make sure we only use up to 5 characters for space concerns.
+		return gsEntry["machineTag"]:sub(1, 5)
+	end
+
+	-- User doesn't have a machineTag set. We'll "make" one based off of
+	-- their name.
+	if gsEntry["name"] then
+		-- 4 Characters is the "intended" length.
+		return gsEntry["name"]:sub(1,4):upper()
+	end
+
+	return ""
+end
+
 local GetScoresRequestProcessor = function(res, master)
+	if master == nil then return end
+
+	for i=1,2 do
+		local paneDisplay = master:GetChild("PaneDisplayP"..tostring(i))
+
+		local machineScore = paneDisplay:GetChild("MachineHighScore")
+		local machineName = paneDisplay:GetChild("MachineHighScoreName")
+
+		local playerScore = paneDisplay:GetChild("PlayerHighScore")
+		local playerName = paneDisplay:GetChild("PlayerHighScoreName")
+
+		local playerStr = "player"..tostring(i)
+		local rivalNum = 1
+		local worldRecordSet = false
+		local personalRecordSet = false
+		local data = res["success"] and res["data"] or false
+
+		-- First check to see if the leaderboard even exists.
+		if data and data[playerStr] and data[playerStr]["gsLeaderboard"] then
+			-- And then also ensure that the chart hash matches the currently parsed one.
+			-- It's better to just not display anything than display the wrong scores.
+			if SL["P"..tostring(i)].Streams.Hash == data[playerStr]["chartHash"] then
+				for gsEntry in ivalues(data[playerStr]["gsLeaderboard"]) do
+					if gsEntry["rank"] == 1 then
+						SetNameAndScore(
+							GetMachineTag(gsEntry),
+							string.format("%.2f%%", gsEntry["score"]/100),
+							machineName,
+							machineScore
+						)
+						worldRecordSet = true
+					end
+
+					if gsEntry["isSelf"] then
+						SetNameAndScore(
+							GetMachineTag(gsEntry),
+							string.format("%.2f%%", gsEntry["score"]/100),
+							playerName,
+							playerScore
+						)
+						personalRecordSet = true
+					end
+
+					if gsEntry["isRival"] then
+						local rivalScore = paneDisplay:GetChild("Rival"..tostring(rivalNum).."Score")
+						local rivalName = paneDisplay:GetChild("Rival"..tostring(rivalNum).."Name")
+						SetNameAndScore(
+							GetMachineTag(gsEntry),
+							string.format("%.2f%%", gsEntry["score"]/100),
+							rivalName,
+							rivalScore
+						)
+						rivalNum = rivalNum + 1
+					end
+				end
+			end
+		end
+
+		-- Fall back to to using the machine profile's record if we never set the world record.
+		-- This chart may not have been ranked, or there is no WR, or the request failed.
+		if not worldRecordSet then
+			machineName:queuecommand("SetDefault")
+			machineScore:queuecommand("SetDefault")
+		end
+
+		-- Fall back to to using the personal profile's record if we never set the record.
+		-- This chart may not have been ranked, or we don't have a score for it, or the request failed.
+		if not personalRecordSet then
+			playerName:queuecommand("SetDefault")
+			playerScore:queuecommand("SetDefault")
+		end
+
+		-- Iterate over any remaining rivals and hide them.
+		-- This also handles the failure case as rivalNum will never have been incremented.
+		for j=rivalNum,3 do
+			local rivalScore = paneDisplay:GetChild("Rival"..tostring(j).."Score")
+			local rivalName = paneDisplay:GetChild("Rival"..tostring(j).."Name")
+			rivalScore:settext("??.??%")
+			rivalName:settext("----")
+		end
+	end
 end
 
 -- -----------------------------------------------------------------------
@@ -79,7 +183,14 @@ local af = Def.ActorFrame{ Name="PaneDisplayMaster" }
 -- Only add this actor if it's relevant.
 if IsServiceAllowed(SL.GrooveStats.GetScores) then
 	af[#af+1] = RequestResponseActor("GetScores", 10)..{
-		GetScoresRequestCommand=function(self)
+		P1ChartParsedMessageCommand=function(self) self:playcommand("ChartParsed", {player=PLAYER_1}) end,
+		P2ChartParsedMessageCommand=function(self) self:playcommand("ChartParsed", {player=PLAYER_2}) end,
+		ChartParsedCommand=function(self, params)
+			-- This command will be sent twice: once for P1 and once for P2.
+			-- In versus mode P2 is parsed second so we only need to check for that.
+			if GAMESTATE:GetCurrentStyle():GetName() == "versus" and not params.player==PLAYER_2 then return end
+
+			-- This makes sure that the Hash in the ChartInfo cache exists.
 			local sendRequest = false
 			local data = {
 				action="groovestats/player-scores",
@@ -94,6 +205,7 @@ if IsServiceAllowed(SL.GrooveStats.GetScores) then
 					sendRequest = true
 				end
 			end
+
 			-- Only send the request if it's applicable.
 			if sendRequest then
 				MESSAGEMAN:Broadcast("GetScores", {
@@ -106,7 +218,7 @@ if IsServiceAllowed(SL.GrooveStats.GetScores) then
 	}
 end
 
-for player in ivalues( PlayerNumber ) do
+for player in ivalues(PlayerNumber) do
 	local pn = ToEnumShortString(player)
 
 	af[#af+1] = Def.ActorFrame{ Name="PaneDisplay"..ToEnumShortString(player) }
@@ -227,6 +339,15 @@ for player in ivalues( PlayerNumber ) do
 			self:y(pos.row[1])
 		end,
 		SetCommand=function(self)
+			-- We overload this actor to work both for GrooveStats and also offline.
+			-- If we're connected, we let the ResponseProcessor set the text
+			if IsServiceAllowed(SL.GrooveStats.GetScores) then
+				self:settext("----")
+			else
+				self:queuecommand("SetDefault")
+			end
+		end,
+		SetDefaultCommand=function(self)
 			local SongOrCourse, StepsOrTrail = GetSongAndSteps(player)
 			local machine_score, machine_name = GetNameAndScore(machine_profile, SongOrCourse, StepsOrTrail)
 			self:settext(machine_name or ""):diffuse(Color.Black)
@@ -243,6 +364,15 @@ for player in ivalues( PlayerNumber ) do
 			self:y(pos.row[1])
 		end,
 		SetCommand=function(self)
+			-- We overload this actor to work both for GrooveStats and also offline.
+			-- If we're connected, we let the ResponseProcessor set the text
+			if IsServiceAllowed(SL.GrooveStats.GetScores) then
+				self:settext("??.??%")
+			else
+				self:queuecommand("SetDefault")
+			end
+		end,
+		SetDefaultCommand=function(self)
 			local SongOrCourse, StepsOrTrail = GetSongAndSteps(player)
 			local machine_score, machine_name = GetNameAndScore(machine_profile, SongOrCourse, StepsOrTrail)
 			self:settext(machine_score or "")
@@ -258,6 +388,15 @@ for player in ivalues( PlayerNumber ) do
 			self:y(pos.row[2])
 		end,
 		SetCommand=function(self)
+			-- We overload this actor to work both for GrooveStats and also offline.
+			-- If we're connected, we let the ResponseProcessor set the text
+			if IsServiceAllowed(SL.GrooveStats.GetScores) then
+				self:settext("----")
+			else
+				self:queuecommand("SetDefault")
+			end
+		end,
+		SetDefaultCommand=function(self)
 			local SongOrCourse, StepsOrTrail = GetSongAndSteps(player)
 			local player_score, player_name
 			if PROFILEMAN:IsPersistentProfile(player) then
@@ -277,6 +416,15 @@ for player in ivalues( PlayerNumber ) do
 			self:y(pos.row[2])
 		end,
 		SetCommand=function(self)
+			-- We overload this actor to work both for GrooveStats and also offline.
+			-- If we're connected, we let the ResponseProcessor set the text
+			if IsServiceAllowed(SL.GrooveStats.GetScores) then
+				self:settext("??.??%")
+			else
+				self:queuecommand("SetDefault")
+			end
+		end,
+		SetDefaultCommand=function(self)
 			local SongOrCourse, StepsOrTrail = GetSongAndSteps(player)
 			local player_score, player_name
 			if PROFILEMAN:IsPersistentProfile(player) then
@@ -295,6 +443,10 @@ for player in ivalues( PlayerNumber ) do
 			self:xy(pos.col[4], pos.row[2])
 			if not IsUsingWideScreen() then self:maxwidth(66) end
 			self:queuecommand("Set")
+			-- Hide the difficulty number if we're connected.
+			if IsServiceAllowed(SL.GrooveStats.GetScores) then
+				self:visible(false)
+			end
 		end,
 		SetCommand=function(self)
 			local SongOrCourse, StepsOrTrail = GetSongAndSteps(player)
@@ -315,16 +467,10 @@ for player in ivalues( PlayerNumber ) do
 				self:zoom(text_zoom):diffuse(Color.Black):maxwidth(30)
 				self:x(pos.col[3]+50*text_zoom)
 				self:y(pos.row[i])
-				self:visible(false)
+				self:visible(IsServiceAllowed(SL.GrooveStats.GetScores))
 			end,
 			SetCommand=function(self)
-				local SongOrCourse, StepsOrTrail = GetSongAndSteps(player)
-				local player_score, player_name
-				if PROFILEMAN:IsPersistentProfile(player) then
-					player_score, player_name = GetNameAndScore(PROFILEMAN:GetProfile(player), SongOrCourse, StepsOrTrail)
-				end
-				self:settext(player_name or ""):diffuse(Color.Black)
-				DiffuseEmojis(self)
+				self:settext("----")
 			end
 		}
 
@@ -334,17 +480,11 @@ for player in ivalues( PlayerNumber ) do
 			InitCommand=function(self)
 				self:zoom(text_zoom):diffuse(Color.Black):horizalign(right)
 				self:x(pos.col[3]+125*text_zoom)
-				self:y(pos.row[2])
-				self:visible(false)
+				self:y(pos.row[i])
+				self:visible(IsServiceAllowed(SL.GrooveStats.GetScores))
 			end,
 			SetCommand=function(self)
-				local SongOrCourse, StepsOrTrail = GetSongAndSteps(player)
-				local player_score, player_name
-				if PROFILEMAN:IsPersistentProfile(player) then
-					player_score, player_name = GetNameAndScore(PROFILEMAN:GetProfile(player), SongOrCourse, StepsOrTrail)
-				end
-
-				self:settext(player_score or "")
+				self:settext("??.??%")
 			end
 		}
 	end

@@ -349,6 +349,9 @@ local MaybeCopyFromOppositePlayer = function(pn, filename, stepsType, difficulty
 		SL[pn].Streams.Description = SL[opposite_player].Streams.Description
 
 		MESSAGEMAN:Broadcast(pn.."ChartParsed")
+		return true
+	else
+		return false
 	end
 end
 		
@@ -362,7 +365,10 @@ ParseChartInfo = function(steps, pn)
 	-- An arbitary but unique string provided by the stepartist, needed here to identify Edit charts
 	local description = steps:GetDescription()
 
-	MaybeCopyFromOppositePlayer(pn, filename, stepsType, difficulty, description)
+	-- If we've copied from the other player then we're done.
+	if MaybeCopyFromOppositePlayer(pn, filename, stepsType, difficulty, description) then
+		return
+	end
 
 	-- Only parse the file if it's not what's already stored in SL Cache.
 	if (SL[pn].Streams.Filename ~= filename or
