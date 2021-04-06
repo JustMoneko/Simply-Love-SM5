@@ -183,12 +183,24 @@ local af = Def.ActorFrame{ Name="PaneDisplayMaster" }
 -- Only add this actor if it's relevant.
 if IsServiceAllowed(SL.GrooveStats.GetScores) then
 	af[#af+1] = RequestResponseActor("GetScores", 10)..{
-		P1ChartParsedMessageCommand=function(self) self:playcommand("ChartParsed", {player=PLAYER_1}) end,
-		P2ChartParsedMessageCommand=function(self) self:playcommand("ChartParsed", {player=PLAYER_2}) end,
-		ChartParsedCommand=function(self, params)
-			-- This command will be sent twice: once for P1 and once for P2.
-			-- In versus mode P2 is parsed second so we only need to check for that.
-			if GAMESTATE:GetCurrentStyle():GetName() == "versus" and not params.player==PLAYER_2 then return end
+		OnCommand=function(self)
+			-- Create variables for both players, even if they're not currently active.
+			self.IsParsing = {false, false}
+		end,
+		-- Broadcasted from ./PerPlayer/DensityGraph.lua
+		P1ChartParsingMessageCommand=function(self)	self.IsParsing[1] = true end,
+		P2ChartParsingMessageCommand=function(self)	self.IsParsing[2] = true end,
+		P1ChartParsedMessageCommand=function(self)
+			self.IsParsing[1] = false
+			self:queuecommand("ChartParsed")
+		end,
+		P2ChartParsedMessageCommand=function(self)
+			self.IsParsing[2] = false
+			self:queuecommand("ChartParsed")
+		end,
+		ChartParsedCommand=function(self)
+			-- Make sure we're still not parsing either chart.
+			if self.IsParsing[1] or self.IsParsing[2] then return end
 
 			-- This makes sure that the Hash in the ChartInfo cache exists.
 			local sendRequest = false
