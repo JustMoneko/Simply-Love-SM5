@@ -26,6 +26,12 @@ local function CreditsText( player )
 			local str = ScreenSystemLayerHelpers.GetCreditsMessage(player)
 			self:settext(str)
 		end,
+		SetCreditsTextMessageCommand=function(self, params)
+			if params.pn == ToEnumShortString(player) then
+				self:settext(params.username)
+				self:visible(true)
+			end
+		end,
 		UpdateVisibleCommand=function(self)
 			local screen = SCREENMAN:GetTopScreen()
 			local bShow = true

@@ -59,6 +59,26 @@ Branch.AllowScreenSelectProfile = function()
 	if ThemePrefs.Get("AllowScreenSelectProfile") then
 		return "ScreenSelectProfile"
 	else
+		if SL.GrooveStats.IsConnected then
+			return "ScreenGrooveStatsLogin"
+		else
+			return Branch.AfterSelectProfile()
+		end
+	end
+end
+
+Branch.AfterSelectProfile = function()
+	local allApiKeys = true
+	for player in ivalues(GAMESTATE:GetHumanPlayers()) do
+		local pn = ToEnumShortString(player)
+		if SL[pn].ApiKey == "" then
+			allApiKeys = false
+			break
+		end
+	end
+	if SL.GrooveStats.IsConnected and not allApiKeys then
+		return "ScreenGrooveStatsLogin"
+	else
 		return Branch.AllowScreenSelectColor()
 	end
 end
